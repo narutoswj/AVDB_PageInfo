@@ -13,7 +13,7 @@ namespace AVDB_PageInfo
         {
             //Console.WriteLine("Please Input The FanHao:");
             //string fanhao = Console.ReadLine();
-            int i = 10;
+            int i = 1;
             string connectString = "Data Source=.;Initial Catalog=Media;Integrated Security=True";
             //string url = "http://avdb.lol//group/" + fanhao + "/currentPage/";
             string url = "http://avdb.lol/currentPage/";

@@ -21,7 +21,7 @@ namespace AVDB_PageInfo
             int LatestPage = GetLastPageNumber(url + 20000, regexMax);
             Console.WriteLine("Total Page:" + (LatestPage).ToString());
 
-            Regex regex = new Regex(@"<div class=""item"">[\s\S][^<]*[\s\S][^<]*[\s\S][^""]*""(?<hyperlink>[^""]*)[\s\S][^""]*[\s\S][^=]*=""(?<title>[^""]*)""[\s\S][^""]*""(?<coverpage>[^""]*)[\s\S][^/]*/[\s\S][^/]*/[\s\S][^=]*=[\s\S][^=]*=""(?<grouphyperlink>[^""]*)[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\>]*>(?<fanhao>[^<]*)[\s\S][^\d]*(?<releasedate>[^<]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
+            //Regex regex = new Regex(@"<div class=""item"">[\s\S][^<]*[\s\S][^<]*[\s\S][^""]*""(?<hyperlink>[^""]*)[\s\S][^""]*[\s\S][^=]*=""(?<title>[^""]*)""[\s\S][^""]*""(?<coverpage>[^""]*)[\s\S][^/]*/[\s\S][^/]*/[\s\S][^=]*=[\s\S][^=]*=""(?<grouphyperlink>[^""]*)[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\>]*>(?<fanhao>[^<]*)[\s\S][^\d]*(?<releasedate>[^<]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
 
             while (i <= LatestPage)
             {
@@ -37,9 +37,38 @@ namespace AVDB_PageInfo
                     var hyperlink = video.SelectNodes("div")[0].SelectNodes("a")[0].Attributes["href"];
                     var title = video.SelectNodes("div")[2].SelectNodes("a")[0].InnerText;
                     var coverPageImageLink = video.SelectNodes("div")[0].SelectNodes("a")[0].SelectNodes("img")[0].Attributes["data-original"];
-                    var serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"];
-                    var SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
-                    var ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
+
+                    string serialhyperlink, SerialNumber, ReleaseDate;
+
+                    try
+                    { 
+                    serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"].Value;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        serialhyperlink = "";
+                    }
+
+                    try
+                    {
+                        SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        SerialNumber = "";
+                    }
+
+                    try
+                    {
+                        ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        ReleaseDate = "";
+                    }
 
                     SqlConnection sqlCnt = new SqlConnection(connectString);
                     sqlCnt.Open();
@@ -52,9 +81,9 @@ namespace AVDB_PageInfo
                     cmd.Parameters.Add("@SerialHyperLink", SqlDbType.NVarChar);
                     cmd.Parameters.Add("@SerialNumber", SqlDbType.NVarChar);
                     cmd.Parameters.Add("@ReleaseDate", SqlDbType.NVarChar);
-                    cmd.Parameters["@HyperLink"].Value = hyperlink.ToString();
+                    cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
                     cmd.Parameters["@Title"].Value = title.ToString();
-                    cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.ToString();
+                    cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
                     cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
                     cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
                     cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();

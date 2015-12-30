@@ -32,81 +32,88 @@ namespace AVDB_PageInfo
 
                 var htmlNode = htmlDocument.DocumentNode;
                 var container = htmlDocument.GetElementbyId("waterfall");
-                var all = container.SelectNodes("div");
-                if (all != null)
+                try
                 {
-                    foreach (var video in all)
+                    var all = container.SelectNodes("div");
+                    if (all != null)
                     {
-                        var hyperlink = video.SelectNodes("div")[0].SelectNodes("a")[0].Attributes["href"];
-                        var title = video.SelectNodes("div")[2].SelectNodes("a")[0].InnerText;
-                        var coverPageImageLink = video.SelectNodes("div")[0].SelectNodes("a")[0].SelectNodes("img")[0].Attributes["data-original"];
+                        foreach (var video in all)
+                        {
+                            var hyperlink = video.SelectNodes("div")[0].SelectNodes("a")[0].Attributes["href"];
+                            var title = video.SelectNodes("div")[2].SelectNodes("a")[0].InnerText;
+                            var coverPageImageLink = video.SelectNodes("div")[0].SelectNodes("a")[0].SelectNodes("img")[0].Attributes["data-original"];
 
-                        string serialhyperlink, SerialNumber, ReleaseDate;
+                            string serialhyperlink, SerialNumber, ReleaseDate;
 
-                        try
-                        {
-                            serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"].Value;
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            serialhyperlink = "";
-                        }
+                            try
+                            {
+                                serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"].Value;
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                serialhyperlink = "";
+                            }
 
-                        try
-                        {
-                            SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            SerialNumber = "";
-                        }
+                            try
+                            {
+                                SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                SerialNumber = "";
+                            }
 
-                        try
-                        {
-                            ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            ReleaseDate = "";
-                        }
+                            try
+                            {
+                                ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                ReleaseDate = "";
+                            }
 
-                        SqlConnection sqlCnt = new SqlConnection(connectString);
-                        sqlCnt.Open();
-                        SqlCommand cmd = sqlCnt.CreateCommand();
-                        cmd.CommandType = CommandType.Text;
-                        cmd.CommandText = "INSERT INTO [dbo].[VideoSummary] ([HyperLink],[Title],[CoverPageImageLink],[SerialHyperLink],[SerialNumber],[ReleaseDate]) VALUES (@HyperLink,@Title,@CoverPageImageLink,@SerialHyperLink,@SerialNumber,@ReleaseDate)";
-                        cmd.Parameters.Add("@HyperLink", SqlDbType.NVarChar);
-                        cmd.Parameters.Add("@Title", SqlDbType.NVarChar);
-                        cmd.Parameters.Add("@CoverPageImageLink", SqlDbType.NVarChar);
-                        cmd.Parameters.Add("@SerialHyperLink", SqlDbType.NVarChar);
-                        cmd.Parameters.Add("@SerialNumber", SqlDbType.NVarChar);
-                        cmd.Parameters.Add("@ReleaseDate", SqlDbType.NVarChar);
-                        cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
-                        cmd.Parameters["@Title"].Value = title.ToString();
-                        cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
-                        cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
-                        cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
-                        cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();
-                        try
-                        {
-                            cmd.ExecuteScalar();
-                            sqlCnt.Close();
-                            sqlCnt.Dispose();
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            sqlCnt.Close();
-                            sqlCnt.Dispose();
-                            i++;
+                            SqlConnection sqlCnt = new SqlConnection(connectString);
+                            sqlCnt.Open();
+                            SqlCommand cmd = sqlCnt.CreateCommand();
+                            cmd.CommandType = CommandType.Text;
+                            cmd.CommandText = "INSERT INTO [dbo].[VideoSummary] ([HyperLink],[Title],[CoverPageImageLink],[SerialHyperLink],[SerialNumber],[ReleaseDate]) VALUES (@HyperLink,@Title,@CoverPageImageLink,@SerialHyperLink,@SerialNumber,@ReleaseDate)";
+                            cmd.Parameters.Add("@HyperLink", SqlDbType.NVarChar);
+                            cmd.Parameters.Add("@Title", SqlDbType.NVarChar);
+                            cmd.Parameters.Add("@CoverPageImageLink", SqlDbType.NVarChar);
+                            cmd.Parameters.Add("@SerialHyperLink", SqlDbType.NVarChar);
+                            cmd.Parameters.Add("@SerialNumber", SqlDbType.NVarChar);
+                            cmd.Parameters.Add("@ReleaseDate", SqlDbType.NVarChar);
+                            cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
+                            cmd.Parameters["@Title"].Value = title.ToString();
+                            cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
+                            cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
+                            cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
+                            cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();
+                            try
+                            {
+                                cmd.ExecuteScalar();
+                                sqlCnt.Close();
+                                sqlCnt.Dispose();
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                sqlCnt.Close();
+                                sqlCnt.Dispose();
+                                i++;
+                            }
                         }
                     }
+                    Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": " + all.Count.ToString());
                 }
-
-                Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": " + all.Count.ToString());
+                catch (Exception e)
+                {
+                    Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": 0");
+                    Console.WriteLine(e.Message);
+                }
                 i++;
             }
         }

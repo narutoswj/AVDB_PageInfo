@@ -206,6 +206,7 @@ namespace AVDB_PageInfo
             try
             {
                 System.Net.WebRequest wReq = System.Net.WebRequest.Create(Url);
+                wReq.Timeout = 600000;
                 // Get the response instance.
                 System.Net.WebResponse wResp = wReq.GetResponse();
                 System.IO.Stream respStream = wResp.GetResponseStream();

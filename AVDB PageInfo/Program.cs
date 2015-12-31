@@ -4,6 +4,8 @@ using System.Data.SqlClient;
 using System.Text;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using System.Data.SQLite;
+using System.IO;
 
 namespace AVDB_PageInfo
 {
@@ -11,18 +13,19 @@ namespace AVDB_PageInfo
     {
         static void Main(string[] args)
         {
-            //Console.WriteLine("Please Input The FanHao:");
-            //string fanhao = Console.ReadLine();
             int i = 1;
-            string connectString = "Data Source=.;Initial Catalog=Media;Integrated Security=True";
-            //string url = "http://avdb.lol//group/" + fanhao + "/currentPage/";
+            //string connectStringSQL = "Data Source=.;Initial Catalog=Media;Integrated Security=True";
+            string connectStringSQLite = "Data Source =" + Environment.CurrentDirectory + "\\Media.db";
+
+            //CreateSQLiteFile();
+            CreateSummaryTable(connectStringSQLite);
+            //Get last page number
             string url = "http://avdb.lol/currentPage/";
             Regex regexMax = new Regex(@"/currentPage/(?<page>[\d]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
             int LatestPage = GetLastPageNumber(url + 20000, regexMax);
             Console.WriteLine("Total Page:" + (LatestPage).ToString());
 
-            //Regex regex = new Regex(@"<div class=""item"">[\s\S][^<]*[\s\S][^<]*[\s\S][^""]*""(?<hyperlink>[^""]*)[\s\S][^""]*[\s\S][^=]*=""(?<title>[^""]*)""[\s\S][^""]*""(?<coverpage>[^""]*)[\s\S][^/]*/[\s\S][^/]*/[\s\S][^=]*=[\s\S][^=]*=""(?<grouphyperlink>[^""]*)[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\n]*\n[\s\S][^\>]*>(?<fanhao>[^<]*)[\s\S][^\d]*(?<releasedate>[^<]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
-
+            //Load page summary info into DB
             while (i <= LatestPage)
             {
                 string pageHtml = GetUrltoHtml(url + i, "utf-8");
@@ -75,36 +78,10 @@ namespace AVDB_PageInfo
                                 ReleaseDate = "";
                             }
 
-                            SqlConnection sqlCnt = new SqlConnection(connectString);
-                            sqlCnt.Open();
-                            SqlCommand cmd = sqlCnt.CreateCommand();
-                            cmd.CommandType = CommandType.Text;
-                            cmd.CommandText = "INSERT INTO [dbo].[VideoSummary] ([HyperLink],[Title],[CoverPageImageLink],[SerialHyperLink],[SerialNumber],[ReleaseDate]) VALUES (@HyperLink,@Title,@CoverPageImageLink,@SerialHyperLink,@SerialNumber,@ReleaseDate)";
-                            cmd.Parameters.Add("@HyperLink", SqlDbType.NVarChar);
-                            cmd.Parameters.Add("@Title", SqlDbType.NVarChar);
-                            cmd.Parameters.Add("@CoverPageImageLink", SqlDbType.NVarChar);
-                            cmd.Parameters.Add("@SerialHyperLink", SqlDbType.NVarChar);
-                            cmd.Parameters.Add("@SerialNumber", SqlDbType.NVarChar);
-                            cmd.Parameters.Add("@ReleaseDate", SqlDbType.NVarChar);
-                            cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
-                            cmd.Parameters["@Title"].Value = title.ToString();
-                            cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
-                            cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
-                            cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
-                            cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();
-                            try
-                            {
-                                cmd.ExecuteScalar();
-                                sqlCnt.Close();
-                                sqlCnt.Dispose();
-                            }
-                            catch (System.Exception ex)
-                            {
-                                Console.WriteLine(ex.Message);
-                                sqlCnt.Close();
-                                sqlCnt.Dispose();
-                                i++;
-                            }
+                            SaveToSQLite(connectStringSQLite, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
+
+
+                            //SaveToSQLServer(connectStringSQL, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
                         }
                     }
                     Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": " + all.Count.ToString());
@@ -118,6 +95,87 @@ namespace AVDB_PageInfo
             }
         }
 
+        private static void SaveToSQLite(string connectStringSQLite, HtmlAttribute hyperlink, string title, HtmlAttribute coverPageImageLink, string serialhyperlink, string SerialNumber, string ReleaseDate)
+        {
+            SQLiteConnection conn = null;
+            conn = new SQLiteConnection(connectStringSQLite);
+            conn.Open();
+            SQLiteCommand cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "INSERT INTO [VideoSummary] ([HyperLink],[Title],[CoverPageImageLink],[SerialHyperLink],[SerialNumber],[ReleaseDate]) VALUES (@HyperLink,@Title,@CoverPageImageLink,@SerialHyperLink,@SerialNumber,@ReleaseDate)";
+            cmd.Parameters.Add("@HyperLink", DbType.String);
+            cmd.Parameters.Add("@Title", DbType.String);
+            cmd.Parameters.Add("@CoverPageImageLink", DbType.String);
+            cmd.Parameters.Add("@SerialHyperLink", DbType.String);
+            cmd.Parameters.Add("@SerialNumber", DbType.String);
+            cmd.Parameters.Add("@ReleaseDate", DbType.String);
+            cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
+            cmd.Parameters["@Title"].Value = title.ToString();
+            cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
+            cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
+            cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
+            cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();
+            cmd.ExecuteNonQuery();
+            conn.Close();
+        }
+
+        private static void CreateSummaryTable(string connectStringSQLite)
+        {
+            SQLiteConnection conn = null;
+            conn = new SQLiteConnection(connectStringSQLite);
+            conn.Open();
+            string sql = @"CREATE TABLE IF NOT EXISTS [VideoSummary](
+                                            [HyperLink] [nvarchar](100) NULL,
+	                                        [Title] [nvarchar](200) NULL,
+	                                        [CoverPageImageLink] [nvarchar](100) NULL,
+	                                        [SerialHyperLink] [nvarchar](100) NULL,
+	                                        [SerialNumber] [nvarchar](100) NULL,
+	                                        [ReleaseDate] [nvarchar](100) NULL)";
+            SQLiteCommand cmdCreateTable = new SQLiteCommand(sql, conn);
+            cmdCreateTable.ExecuteNonQuery();
+            conn.Close();
+        }
+
+        private static void CreateSQLiteFile()
+        {
+            if (!File.Exists(Environment.CurrentDirectory + "\\Media.db"))
+            {
+                File.Create(Environment.CurrentDirectory + "\\Media.db");
+            }
+        }
+
+        private static void SaveToSQLServer(string connectString, HtmlAttribute hyperlink, string title, HtmlAttribute coverPageImageLink, string serialhyperlink, string SerialNumber, string ReleaseDate)
+        {
+            SqlConnection sqlCnt = new SqlConnection(connectString);
+            sqlCnt.Open();
+            SqlCommand cmd = sqlCnt.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "INSERT INTO [dbo].[VideoSummary] ([HyperLink],[Title],[CoverPageImageLink],[SerialHyperLink],[SerialNumber],[ReleaseDate]) VALUES (@HyperLink,@Title,@CoverPageImageLink,@SerialHyperLink,@SerialNumber,@ReleaseDate)";
+            cmd.Parameters.Add("@HyperLink", SqlDbType.NVarChar);
+            cmd.Parameters.Add("@Title", SqlDbType.NVarChar);
+            cmd.Parameters.Add("@CoverPageImageLink", SqlDbType.NVarChar);
+            cmd.Parameters.Add("@SerialHyperLink", SqlDbType.NVarChar);
+            cmd.Parameters.Add("@SerialNumber", SqlDbType.NVarChar);
+            cmd.Parameters.Add("@ReleaseDate", SqlDbType.NVarChar);
+            cmd.Parameters["@HyperLink"].Value = hyperlink.Value.ToString();
+            cmd.Parameters["@Title"].Value = title.ToString();
+            cmd.Parameters["@CoverPageImageLink"].Value = coverPageImageLink.Value.ToString();
+            cmd.Parameters["@SerialHyperLink"].Value = serialhyperlink.ToString();
+            cmd.Parameters["@SerialNumber"].Value = SerialNumber.ToString();
+            cmd.Parameters["@ReleaseDate"].Value = ReleaseDate.ToString();
+            try
+            {
+                cmd.ExecuteScalar();
+                sqlCnt.Close();
+                sqlCnt.Dispose();
+            }
+            catch (System.Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                sqlCnt.Close();
+                sqlCnt.Dispose();
+            }
+        }
 
         public static string GetUrltoHtml(string Url, string type)
         {
@@ -142,7 +200,7 @@ namespace AVDB_PageInfo
 
         private static int GetLastPageNumber(string url, Regex regex)
         {
-            int page = 100;
+            int page = 0;
             try
             {
                 MatchCollection matchCollection = regex.Matches(GetUrltoHtml(url, "utf-8"));

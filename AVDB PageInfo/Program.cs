@@ -18,7 +18,7 @@ namespace AVDB_PageInfo
             string connectStringSQLite = "Data Source =" + Environment.CurrentDirectory + "\\Media.db";
 
             //CreateSQLiteFile();
-            CreateSummaryTable(connectStringSQLite);
+            CreateTable(connectStringSQLite);
             //Get last page number
             string url = "http://avdb.lol/currentPage/";
             Regex regexMax = new Regex(@"/currentPage/(?<page>[\d]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
@@ -28,70 +28,76 @@ namespace AVDB_PageInfo
             //Load page summary info into DB
             while (i <= LatestPage)
             {
-                string pageHtml = GetUrltoHtml(url + i, "utf-8");
-
-                var htmlDocument = new HtmlDocument();
-                htmlDocument.LoadHtml(pageHtml);
-
-                var htmlNode = htmlDocument.DocumentNode;
-                var container = htmlDocument.GetElementbyId("waterfall");
-                try
-                {
-                    var all = container.SelectNodes("div");
-                    if (all != null)
-                    {
-                        foreach (var video in all)
-                        {
-                            var hyperlink = video.SelectNodes("div")[0].SelectNodes("a")[0].Attributes["href"];
-                            var title = video.SelectNodes("div")[2].SelectNodes("a")[0].InnerText;
-                            var coverPageImageLink = video.SelectNodes("div")[0].SelectNodes("a")[0].SelectNodes("img")[0].Attributes["data-original"];
-
-                            string serialhyperlink, SerialNumber, ReleaseDate;
-
-                            try
-                            {
-                                serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"].Value;
-                            }
-                            catch (System.Exception ex)
-                            {
-                                Console.WriteLine(ex.Message);
-                                serialhyperlink = "";
-                            }
-
-                            try
-                            {
-                                SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
-                            }
-                            catch (System.Exception ex)
-                            {
-                                Console.WriteLine(ex.Message);
-                                SerialNumber = "";
-                            }
-
-                            try
-                            {
-                                ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
-                            }
-                            catch (System.Exception ex)
-                            {
-                                Console.WriteLine(ex.Message);
-                                ReleaseDate = "";
-                            }
-
-                            SaveToSQLite(connectStringSQLite, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
-
-
-                            //SaveToSQLServer(connectStringSQL, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
-                        }
-                    }
-                    Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": " + all.Count.ToString());
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": 0");
-                    Console.WriteLine(e.Message);
-                }
+                LoadOnePage(i, connectStringSQLite, url);
                 i++;
+            }
+        }
+
+        private static void LoadOnePage(int i, string connectStringSQLite, string url)
+        {
+            string pageHtml = GetUrltoHtml(url + i, "utf-8");
+
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(pageHtml);
+
+            var htmlNode = htmlDocument.DocumentNode;
+            var container = htmlDocument.GetElementbyId("waterfall");
+            try
+            {
+                var all = container.SelectNodes("div");
+                if (all != null)
+                {
+                    foreach (var video in all)
+                    {
+                        var hyperlink = video.SelectNodes("div")[0].SelectNodes("a")[0].Attributes["href"];
+                        var title = video.SelectNodes("div")[2].SelectNodes("a")[0].InnerText;
+                        var coverPageImageLink = video.SelectNodes("div")[0].SelectNodes("a")[0].SelectNodes("img")[0].Attributes["data-original"];
+
+                        string serialhyperlink, SerialNumber, ReleaseDate;
+
+                        try
+                        {
+                            serialhyperlink = video.SelectNodes("div")[1].SelectNodes("a")[0].Attributes["href"].Value;
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            serialhyperlink = "";
+                        }
+
+                        try
+                        {
+                            SerialNumber = video.SelectNodes("div")[2].SelectNodes("span")[0].InnerText;
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            SerialNumber = "";
+                        }
+
+                        try
+                        {
+                            ReleaseDate = video.SelectNodes("div")[2].SelectNodes("span")[1].InnerText;
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                            ReleaseDate = "";
+                        }
+
+                        SaveToSQLite(connectStringSQLite, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
+
+
+                        //SaveToSQLServer(connectStringSQL, hyperlink, title, coverPageImageLink, serialhyperlink, SerialNumber, ReleaseDate);
+                    }
+                }
+                Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": " + all.Count.ToString());
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(DateTime.Now.ToString() + "   " + i.ToString() + ": 0");
+                SaveFailPage(connectStringSQLite, i.ToString());
+                Console.WriteLine(e.Message);
             }
         }
 
@@ -119,18 +125,36 @@ namespace AVDB_PageInfo
             conn.Close();
         }
 
-        private static void CreateSummaryTable(string connectStringSQLite)
+        private static void SaveFailPage(string connectStringSQLite, string pagenumber)
+        {
+            SQLiteConnection conn = null;
+            conn = new SQLiteConnection(connectStringSQLite);
+            conn.Open();
+            SQLiteCommand cmd = conn.CreateCommand();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "INSERT INTO [FailedPage] ([PageNumber]) VALUES (@PageNumber)";
+            cmd.Parameters.Add("@PageNumber", DbType.String);
+            cmd.Parameters["@PageNumber"].Value = pagenumber.ToString();
+            cmd.ExecuteNonQuery();
+            conn.Close();
+        }
+
+        private static void CreateTable(string connectStringSQLite)
         {
             SQLiteConnection conn = null;
             conn = new SQLiteConnection(connectStringSQLite);
             conn.Open();
             string sql = @"CREATE TABLE IF NOT EXISTS [VideoSummary](
-                                            [HyperLink] [nvarchar](100) NULL,
-	                                        [Title] [nvarchar](200) NULL,
-	                                        [CoverPageImageLink] [nvarchar](100) NULL,
-	                                        [SerialHyperLink] [nvarchar](100) NULL,
-	                                        [SerialNumber] [nvarchar](100) NULL,
-	                                        [ReleaseDate] [nvarchar](100) NULL)";
+                          [HyperLink] [nvarchar](100) NULL,
+	                      [Title] [nvarchar](200) NULL,
+	                      [CoverPageImageLink] [nvarchar](100) NULL,
+	                      [SerialHyperLink] [nvarchar](100) NULL,
+	                      [SerialNumber] [nvarchar](100) NULL,
+	                      [ReleaseDate] [nvarchar](100) NULL);
+
+                          CREATE TABLE IF NOT EXISTS [FailedPage](
+                          [PageNumber] [nvarchar](100) NULL);";
+
             SQLiteCommand cmdCreateTable = new SQLiteCommand(sql, conn);
             cmdCreateTable.ExecuteNonQuery();
             conn.Close();

@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using System.Data.SQLite;
 using System.IO;
+using System.Collections.Generic;
 
 namespace AVDB_PageInfo
 {
@@ -19,6 +20,7 @@ namespace AVDB_PageInfo
 
             //CreateSQLiteFile();
             CreateTable(connectStringSQLite);
+
             //Get last page number
             string url = "http://avdb.lol/currentPage/";
             Regex regexMax = new Regex(@"/currentPage/(?<page>[\d]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.Singleline);
@@ -26,10 +28,25 @@ namespace AVDB_PageInfo
             Console.WriteLine("Total Page:" + (LatestPage).ToString());
 
             //Load page summary info into DB
-            while (i <= LatestPage)
+            //while (i <= LatestPage)
+            //{
+            //    LoadOnePage(i, connectStringSQLite, url);
+            //    i++;
+            //}
+
+            //Reload filed page
+            while (GetFailedPage(connectStringSQLite).Count > 1)
             {
-                LoadOnePage(i, connectStringSQLite, url);
-                i++;
+                foreach (int p in GetFailedPage(connectStringSQLite))
+                {
+                    try
+                    {
+                        LoadOnePage(p, connectStringSQLite, url);
+                        DeleteFailRecord(connectStringSQLite, p);
+                    }
+                    catch (Exception e)
+                    { }
+                }
             }
         }
 
@@ -158,6 +175,39 @@ namespace AVDB_PageInfo
             SQLiteCommand cmdCreateTable = new SQLiteCommand(sql, conn);
             cmdCreateTable.ExecuteNonQuery();
             conn.Close();
+        }
+
+        private static void DeleteFailRecord(string connectStringSQLite, int pagenumber)
+        {
+            SQLiteConnection conn = null;
+            conn = new SQLiteConnection(connectStringSQLite);
+            conn.Open();
+            string sql = @"DELETE FROM [FailedPage] WHERE [PageNumber] = " + pagenumber.ToString();
+
+            SQLiteCommand cmdCreateTable = new SQLiteCommand(sql, conn);
+            cmdCreateTable.ExecuteNonQuery();
+            conn.Close();
+        }
+
+        private static List<int> GetFailedPage(string connectStringSQLite)
+        {
+            List<int> pagelist = new List<int>();
+            int i = 0;
+            SQLiteConnection conn = null;
+            conn = new SQLiteConnection(connectStringSQLite);
+            conn.Open();
+            string sql = @"SELECT [PageNumber] FROM [FailedPage]";
+
+            SQLiteCommand cmdFailedPage = new SQLiteCommand(sql, conn);
+            SQLiteDataReader reader = cmdFailedPage.ExecuteReader();
+            while (reader.Read())
+            {
+                pagelist.Add(int.Parse(reader.GetString(0)));
+
+            }
+            conn.Close();
+
+            return pagelist;
         }
 
         private static void CreateSQLiteFile()
